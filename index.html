@@ -63,14 +63,15 @@
     .btn-backup { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
     .btn-restore { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
 
-    /* Custom Dialog Overlay */
-    .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 10000; align-items: center; justify-content: center; }
-    .modal-box { background: #ffffff; border-radius: 14px; padding: 22px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
-    .modal-btn-row { display: flex; gap: 10px; margin-top: 18px; }
+    /* Modal Backdrop & Popups */
+    .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; }
+    .modal-box { background: #ffffff; border-radius: 14px; padding: 20px; width: 90%; max-width: 360px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
+    .modal-btn-row { display: flex; gap: 10px; margin-top: 16px; }
     .modal-btn { flex: 1; padding: 10px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; }
     .btn-modal-cancel { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
     .btn-modal-confirm { background: #dc2626; color: #ffffff; }
     .btn-modal-ok { background: #0f172a; color: #ffffff; }
+    .modal-textarea { width: 100%; height: 130px; font-size: 0.8rem; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; resize: none; background: #f8fafc; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -155,7 +156,7 @@
     <h2>Attendance Log</h2>
     <div id="logContainer">Loading records...</div>
     <div style="margin-top: 14px;">
-      <button type="button" class="btn-secondary" style="width: 100%;" onclick="exportDataToCSV()">📊 Export to Excel (CSV)</button>
+      <button type="button" class="btn-secondary" style="width: 100%;" onclick="openReportModal()">📊 View & Export Report (CSV / Excel)</button>
     </div>
   </div>
 
@@ -163,40 +164,80 @@
   <div class="card">
     <h2>Backup & Transfer Data</h2>
     <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 12px;">
-      Download backup before phone reset or transfer to a new phone.
+      Cloud-connected backup. Direct copy/paste bina kisi permission ke.
     </p>
     <div class="action-row">
-      <button type="button" class="btn-secondary btn-backup" onclick="downloadBackupJSON()">📥 Backup (Download)</button>
-      <button type="button" class="btn-secondary btn-restore" onclick="triggerRestoreInput()">📤 Restore (Upload)</button>
-      <input type="file" id="restoreFileInput" accept=".json" style="display: none;" onchange="handleRestoreFile(event)">
+      <button type="button" class="btn-secondary btn-backup" onclick="openBackupModal()">📥 Backup Data</button>
+      <button type="button" class="btn-secondary btn-restore" onclick="openRestoreModal()">📤 Restore Data</button>
     </div>
   </div>
 
-  <!-- Custom Confirmation Dialog (Delete) -->
+  <!-- ALL POPUP MODALS -->
+
+  <!-- 1. Delete Confirm Modal -->
   <div id="deleteModal" class="modal-backdrop">
     <div class="modal-box">
       <h3 style="font-size:1.1rem; color:#0f172a; margin-bottom:8px;">Delete Entry?</h3>
       <p style="font-size:0.85rem; color:#64748b;">Kya aap sach me yeh record delete karna chahte hain?</p>
       <div class="modal-btn-row">
-        <button type="button" class="modal-btn btn-modal-cancel" onclick="closeDeleteModal()">Cancel</button>
+        <button type="button" class="modal-btn btn-modal-cancel" onclick="closeModal('deleteModal')">Cancel</button>
         <button type="button" class="modal-btn btn-modal-confirm" onclick="confirmDeleteAction()">Delete</button>
       </div>
     </div>
   </div>
 
-  <!-- Custom Alert Dialog (App/Chrome Safe) -->
+  <!-- 2. Alert Modal -->
   <div id="alertModal" class="modal-backdrop">
     <div class="modal-box">
       <h3 id="alertModalTitle" style="font-size:1.1rem; color:#0f172a; margin-bottom:8px;">Notification</h3>
       <p id="alertModalText" style="font-size:0.85rem; color:#64748b;"></p>
       <div class="modal-btn-row">
-        <button type="button" class="modal-btn btn-modal-ok" onclick="closeAlertModal()">OK</button>
+        <button type="button" class="modal-btn btn-modal-ok" onclick="closeModal('alertModal')">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Backup Modal -->
+  <div id="backupModal" class="modal-backdrop">
+    <div class="modal-box">
+      <h3 style="font-size:1.1rem; color:#0f172a; margin-bottom:8px;">Backup Data</h3>
+      <p style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">Neeche button se code copy karke WhatsApp ya Notes me save kar lein:</p>
+      <textarea id="backupTextArea" class="modal-textarea" readonly onclick="this.select()"></textarea>
+      <div class="modal-btn-row">
+        <button type="button" class="modal-btn btn-modal-cancel" onclick="closeModal('backupModal')">Close</button>
+        <button type="button" class="modal-btn btn-modal-ok" onclick="copyModalContent('backupTextArea')">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Restore Modal -->
+  <div id="restoreModal" class="modal-backdrop">
+    <div class="modal-box">
+      <h3 style="font-size:1.1rem; color:#0f172a; margin-bottom:8px;">Restore Backup</h3>
+      <p style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">Apna copy kiya hua backup code yahan paste karein:</p>
+      <textarea id="restoreTextArea" class="modal-textarea" placeholder="Paste backup JSON here..."></textarea>
+      <div class="modal-btn-row">
+        <button type="button" class="modal-btn btn-modal-cancel" onclick="closeModal('restoreModal')">Cancel</button>
+        <button type="button" class="modal-btn btn-modal-ok" style="background:#16a34a;" onclick="submitRestoreData()">Restore</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Excel / Report Modal -->
+  <div id="reportModal" class="modal-backdrop">
+    <div class="modal-box">
+      <h3 style="font-size:1.1rem; color:#0f172a; margin-bottom:8px;">Attendance Report</h3>
+      <p style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">Is report ko copy karke Excel ya WhatsApp me paste kar sakte hain:</p>
+      <textarea id="reportTextArea" class="modal-textarea" readonly onclick="this.select()"></textarea>
+      <div class="modal-btn-row">
+        <button type="button" class="modal-btn btn-modal-cancel" onclick="closeModal('reportModal')">Close</button>
+        <button type="button" class="modal-btn btn-modal-ok" onclick="copyModalContent('reportTextArea')">📋 Copy Report</button>
       </div>
     </div>
   </div>
 
   <script>
-    // Firebase Config
+    // Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCu4j0LETOFRQnuxmR3mW7QWlftjt-CbWY",
       authDomain: "shop-tracker-11aa8.firebaseapp.com",
@@ -214,15 +255,32 @@
     let activeCycleEnd = '';
     let targetDeleteDate = null;
 
-    // Custom Modal Controllers
+    // Custom Modal Helpers
     function showAppAlert(title, message) {
       document.getElementById('alertModalTitle').innerText = title;
       document.getElementById('alertModalText').innerText = message;
       document.getElementById('alertModal').style.display = 'flex';
     }
 
-    function closeAlertModal() {
-      document.getElementById('alertModal').style.display = 'none';
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function copyModalContent(elementId) {
+      const textarea = document.getElementById(elementId);
+      textarea.select();
+      textarea.setSelectionRange(0, 99999);
+      try {
+        navigator.clipboard.writeText(textarea.value).then(() => {
+          showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
+        }).catch(() => {
+          document.execCommand('copy');
+          showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
+        });
+      } catch(e) {
+        document.execCommand('copy');
+        showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
+      }
     }
 
     function deleteRecord(date) {
@@ -230,25 +288,80 @@
       document.getElementById('deleteModal').style.display = 'flex';
     }
 
-    function closeDeleteModal() {
-      targetDeleteDate = null;
-      document.getElementById('deleteModal').style.display = 'none';
-    }
-
     function confirmDeleteAction() {
       if (targetDeleteDate) {
         db.child(targetDeleteDate).remove((err) => {
           if (err) {
-            showAppAlert('Error', 'Failed to delete: ' + err.message);
+            showAppAlert('Error', 'Failed: ' + err.message);
           } else {
-            showAppAlert('Deleted', 'Record safely removed.');
+            showAppAlert('Deleted', 'Record safely deleted.');
           }
-          closeDeleteModal();
+          closeModal('deleteModal');
         });
       }
     }
 
-    // Realtime Cloud Synchronization
+    // Backup & Restore
+    function openBackupModal() {
+      if (!memoryRecords.length) {
+        return showAppAlert('Notice', 'No records available to backup.');
+      }
+      document.getElementById('backupTextArea').value = JSON.stringify(memoryRecords, null, 2);
+      document.getElementById('backupModal').style.display = 'flex';
+    }
+
+    function openRestoreModal() {
+      document.getElementById('restoreTextArea').value = '';
+      document.getElementById('restoreModal').style.display = 'flex';
+    }
+
+    function submitRestoreData() {
+      const text = document.getElementById('restoreTextArea').value.trim();
+      if (!text) {
+        return showAppAlert('Error', 'Kripya backup code daaliye.');
+      }
+      try {
+        const importedData = JSON.parse(text);
+        if (Array.isArray(importedData)) {
+          const updates = {};
+          importedData.forEach(item => {
+            if (item.date) updates[item.date] = item;
+          });
+          db.update(updates, (err) => {
+            if (err) {
+              showAppAlert('Error', 'Restore failed: ' + err.message);
+            } else {
+              showAppAlert('Success', `Backup restored! Total ${importedData.length} records updated.`);
+              closeModal('restoreModal');
+            }
+          });
+        } else {
+          showAppAlert('Error', 'Invalid format. Expected list of records.');
+        }
+      } catch (e) {
+        showAppAlert('Error', 'Invalid JSON text format.');
+      }
+    }
+
+    // Monthly Report
+    function openReportModal() {
+      const cycleData = memoryRecords.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
+      if (!cycleData.length) {
+        return showAppAlert('Notice', 'Is period ka koi record nahi hai.');
+      }
+
+      let reportText = 'Date\tDay\tStatus\tCheck In\tCheck Out\tHours\tRemarks\n';
+      cycleData.forEach(row => {
+        const d = new Date(row.date + 'T00:00:00');
+        const day = d.toLocaleDateString('en-GB', { weekday: 'short' });
+        reportText += `${row.date}\t${day}\t${row.status}\t${row.inTime}\t${row.outTime}\t${row.hours || 0}\t${row.notes}\n`;
+      });
+
+      document.getElementById('reportTextArea').value = reportText;
+      document.getElementById('reportModal').style.display = 'flex';
+    }
+
+    // Realtime Cloud Synchronization (Firebase DB)
     db.on('value', (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -257,6 +370,7 @@
       } else {
         memoryRecords = [];
       }
+      // Offline local cache
       localStorage.setItem('store_attendance_db', JSON.stringify(memoryRecords));
       updateDashboard();
       onDateChange();
@@ -325,201 +439,4 @@
       const status = document.getElementById('statusSelect').value;
       const inTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('inTime').value || '-');
       const outTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('outTime').value || '-');
-      const notes = document.getElementById('notesInput').value || '-';
-      const hours = (status === 'Present' || status === 'Half Day') ? calculateDuration(inTime, outTime) : 0;
-
-      const recordObj = { date, status, inTime, outTime, notes, hours };
-
-      db.child(date).set(recordObj, (err) => {
-        if (err) {
-          showAppAlert('Error', 'Save failed: ' + err.message);
-        } else {
-          showAppAlert('Success', 'Record saved successfully.');
-        }
-      });
-    }
-
-    function editRecord(date) {
-      document.getElementById('dateInput').value = date;
-      onDateChange();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    /* Safe Backup & Restore (No Storage Permission Needed) */
-function downloadBackupJSON() {
-  if (!memoryRecords.length) {
-    return showAppAlert('Notice', 'No records available to backup.');
-  }
-  const dataStr = JSON.stringify(memoryRecords, null, 2);
-  
-  navigator.clipboard.writeText(dataStr).then(() => {
-    showAppAlert('Backup Copied', 'Poora backup data copy ho gaya hai! Aap ise WhatsApp ya Notes me paste karke save rakh sakte hain.');
-  }).catch(() => {
-    prompt('Neeche diye gaye data ko copy kar lijiye:', dataStr);
-  });
-}
-
-function triggerRestoreInput() {
-  const backupText = prompt('Apna backup JSON data yahan paste karein:');
-  if (!backupText) return;
-
-  try {
-    const importedData = JSON.parse(backupText);
-    if (Array.isArray(importedData)) {
-      const updates = {};
-      importedData.forEach(item => {
-        if (item.date) updates[item.date] = item;
-      });
-      db.update(updates, (err) => {
-        if (err) {
-          showAppAlert('Error', 'Failed to restore: ' + err.message);
-        } else {
-          showAppAlert('Success', `Backup restored! Total ${importedData.length} records update ho gaye.`);
-        }
-      });
-    } else {
-      showAppAlert('Error', 'Invalid backup format.');
-    }
-  } catch (err) {
-    showAppAlert('Error', 'Invalid JSON code! Kripya sahi format paste karein.');
-  }
-}
-
-
-    function populateCycleDropdown() {
-      const dropdown = document.getElementById('cycleSelector');
-      dropdown.innerHTML = '';
-
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      const currentDay = now.getDate();
-
-      let activeCycleStartMonth = currentDay >= 14 ? currentMonth : currentMonth - 1;
-
-      for (let offset = -6; offset <= 6; offset++) {
-        const start = new Date(currentYear, activeCycleStartMonth + offset, 14);
-        const end = new Date(currentYear, activeCycleStartMonth + offset + 1, 13);
-
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
-
-        const opt = document.createElement('option');
-        opt.value = `${startStr}|${endStr}`;
-        
-        const startDisplay = start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const endDisplay = end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        opt.innerText = `${startDisplay} – ${endDisplay}`;
-
-        if (offset === 0) {
-          opt.selected = true;
-          activeCycleStart = startStr;
-          activeCycleEnd = endStr;
-        }
-        dropdown.appendChild(opt);
-      }
-      updatePeriodLabel();
-    }
-
-    function updatePeriodLabel() {
-      const startDisplay = new Date(activeCycleStart + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      const endDisplay = new Date(activeCycleEnd + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      document.getElementById('activePeriodLabel').innerText = `${startDisplay} – ${endDisplay}`;
-    }
-
-    function onCycleChange() {
-      const [start, end] = document.getElementById('cycleSelector').value.split('|');
-      activeCycleStart = start;
-      activeCycleEnd = end;
-      updatePeriodLabel();
-      updateDashboard();
-    }
-
-    function updateDashboard() {
-      const currentCycle = memoryRecords.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
-
-      let present = 0, absent = 0, halfDay = 0, weeklyOff = 0, totalHours = 0;
-
-      currentCycle.forEach(entry => {
-        if (entry.status === 'Present') present++;
-        else if (entry.status === 'Absent') absent++;
-        else if (entry.status === 'Half Day') halfDay++;
-        else if (entry.status === 'Weekly Off') weeklyOff++;
-        totalHours += Number(entry.hours || 0);
-      });
-
-      document.getElementById('metricPresent').innerText = present;
-      document.getElementById('metricAbsent').innerText = absent;
-      document.getElementById('metricHalfDay').innerText = halfDay;
-      document.getElementById('metricOff').innerText = weeklyOff;
-      document.getElementById('metricHours').innerText = totalHours.toFixed(1) + ' hrs';
-
-      const logContainer = document.getElementById('logContainer');
-      if (!currentCycle.length) {
-        logContainer.innerHTML = '<p style="color:#94a3b8; font-size:0.85rem; padding: 8px 0;">No records found for this period.</p>';
-        return;
-      }
-
-      let logHTML = '';
-      currentCycle.forEach((item) => {
-        let badgeStyle = 'badge-present';
-        if (item.status === 'Absent') badgeStyle = 'badge-absent';
-        else if (item.status === 'Half Day') badgeStyle = 'badge-halfday';
-        else if (item.status === 'Weekly Off') badgeStyle = 'badge-off';
-
-        const isCurrentlyWorking = (item.status === 'Present' || item.status === 'Half Day') && item.inTime !== '-' && item.outTime === '-';
-
-        logHTML += `
-          <div class="entry-item">
-            <div class="entry-details">
-              <strong>${formatDisplayDate(item.date)}</strong> &nbsp;
-              <span class="badge ${isCurrentlyWorking ? 'badge-working' : badgeStyle}">
-                ${isCurrentlyWorking ? 'On Duty' : item.status}
-              </span>
-              <div class="entry-subtext">
-                ${item.status !== 'Absent' && item.status !== 'Weekly Off' 
-                  ? `In: <b>${item.inTime}</b> | Out: <b>${item.outTime}</b>${item.hours > 0 ? ` (${item.hours} hrs)` : ''}` 
-                  : 'Weekly Off / Closed'}
-                ${item.notes && item.notes !== '-' ? `<br>Note: ${item.notes}` : ''}
-              </div>
-            </div>
-            <div class="entry-controls">
-              <button class="btn-small btn-edit" onclick="editRecord('${item.date}')">Edit</button>
-              <button class="btn-small btn-delete" onclick="deleteRecord('${item.date}')">✕</button>
-            </div>
-          </div>
-        `;
-      });
-      logContainer.innerHTML = logHTML;
-    }
-
-    function exportDataToCSV() {
-      const cycleData = memoryRecords.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
-
-      if (!cycleData.length) {
-        return showAppAlert('Notice', 'No records found to export for this cycle.');
-      }
-
-      let csvContent = 'Date,Day,Status,Check In,Check Out,Hours Worked,Remarks\n';
-      cycleData.forEach(row => {
-        const d = new Date(row.date + 'T00:00:00');
-        const day = d.toLocaleDateString('en-GB', { weekday: 'long' });
-        csvContent += `"${row.date}","${day}","${row.status}","${row.inTime}","${row.outTime}","${row.hours || 0}","${row.notes}"\n`;
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.setAttribute('download', `Attendance_Report_${activeCycleStart}_to_${activeCycleEnd}.csv`);
-      link.click();
-    }
-
-    // App Startup
-    const today = new Date();
-    const localDate = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    document.getElementById('dateInput').value = localDate;
-
-    populateCycleDropdown();
-  </script>
-</body>
-</html>
+      const notes = document.getElementById('notesInput').valu
