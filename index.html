@@ -159,18 +159,19 @@
     </div>
   </div>
 
-  <!-- Backup & Data Transfer -->
+    <!-- Backup & Transfer Data -->
   <div class="card">
     <h2>Backup & Transfer Data</h2>
     <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 12px;">
-      Download backup before phone reset or transfer to a new phone.
+      Download backup JSON before phone reset or transfer to a new phone.
     </p>
     <div class="action-row">
       <button type="button" class="btn-secondary btn-backup" onclick="downloadBackupJSON()">📥 Backup (Download)</button>
       <button type="button" class="btn-secondary btn-restore" onclick="triggerRestoreInput()">📤 Restore (Upload)</button>
-      <input type="file" id="restoreFileInput" accept=".json" style="display: none;" onchange="handleRestoreFile(event)">
+      <input type="file" id="restoreFileInput" accept=".json" style="display:none;" onchange="handleRestoreFile(event)">
     </div>
   </div>
+
       <!-- Open in Browser Link -->
   <div style="text-align: center; margin: 20px 0 35px 0;">
     <a href="intent://shail11y.github.io/Shop-attendance/#Intent;scheme=https;package=com.android.chrome;end" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; background: #ffffff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 10px; font-weight: 700; font-size: 0.95rem; text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
@@ -351,46 +352,57 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    /* Safe Backup & Restore (No Storage Permission Needed) */
+    /* Original File-based Backup & Restore Logic */
 function downloadBackupJSON() {
-  if (!memoryRecords.length) {
+  if (!memoryRecords || !memoryRecords.length) {
     return showAppAlert('Notice', 'No records available to backup.');
   }
-  const dataStr = JSON.stringify(memoryRecords, null, 2);
-  
-  navigator.clipboard.writeText(dataStr).then(() => {
-    showAppAlert('Backup Copied', 'Poora backup data copy ho gaya hai! Aap ise WhatsApp ya Notes me paste karke save rakh sakte hain.');
-  }).catch(() => {
-    prompt('Neeche diye gaye data ko copy kar lijiye:', dataStr);
-  });
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(memoryRecords, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `Shop_Attendance_Backup_${new Date().toISOString().split('T')[0]}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
 }
 
 function triggerRestoreInput() {
-  const backupText = prompt('Apna backup JSON data yahan paste karein:');
-  if (!backupText) return;
-
-  try {
-    const importedData = JSON.parse(backupText);
-    if (Array.isArray(importedData)) {
-      const updates = {};
-      importedData.forEach(item => {
-        if (item.date) updates[item.date] = item;
-      });
-      db.update(updates, (err) => {
-        if (err) {
-          showAppAlert('Error', 'Failed to restore: ' + err.message);
-        } else {
-          showAppAlert('Success', `Backup restored! Total ${importedData.length} records update ho gaye.`);
-        }
-      });
-    } else {
-      showAppAlert('Error', 'Invalid backup format.');
-    }
-  } catch (err) {
-    showAppAlert('Error', 'Invalid JSON code! Kripya sahi format paste karein.');
+  const fileInput = document.getElementById('restoreFileInput');
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.click();
   }
 }
 
+function handleRestoreFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const importedData = JSON.parse(e.target.result);
+      if (Array.isArray(importedData)) {
+        const updates = {};
+        importedData.forEach(item => {
+          if (item.date) updates[item.date] = item;
+        });
+        db.update(updates, (err) => {
+          if (err) {
+            showAppAlert('Error', 'Failed to restore: ' + err.message);
+          } else {
+            showAppAlert('Success', `Backup restored! Total ${importedData.length} records updated.`);
+          }
+        });
+      } else {
+        showAppAlert('Error', 'Invalid backup file format.');
+      }
+    } catch (err) {
+      showAppAlert('Error', 'Failed to read backup file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
 
     function populateCycleDropdown() {
       const dropdown = document.getElementById('cycleSelector');
