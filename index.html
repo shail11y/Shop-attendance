@@ -159,11 +159,18 @@
   </div>
 
   <script>
-    let activeCycleStart = '';
-    let activeCycleEnd = '';
+    var activeCycleStart = '';
+    var activeCycleEnd = '';
+
+    function toISODate(d) {
+      var year = d.getFullYear();
+      var month = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    }
 
     function getNowTimeString() {
-      const now = new Date();
+      var now = new Date();
       return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     }
 
@@ -173,32 +180,32 @@
 
     function formatDisplayDate(dateStr) {
       if (!dateStr) return '';
-      const parts = dateStr.split('-');
-      const d = new Date(parts[0], parts[1] - 1, parts[2]);
-      const dayName = d.toLocaleDateString('en-GB', { weekday: 'short' });
-      const fullDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      return `${dayName}, ${fullDate}`;
+      var parts = dateStr.split('-');
+      var d = new Date(parts[0], parts[1] - 1, parts[2]);
+      var dayName = d.toLocaleDateString('en-GB', { weekday: 'short' });
+      var fullDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return dayName + ', ' + fullDate;
     }
 
     function onDateChange() {
-      const dateVal = document.getElementById('dateInput').value;
+      var dateVal = document.getElementById('dateInput').value;
       if (!dateVal) return;
       
-      const records = fetchRecords();
-      const match = records.find(r => r.date === dateVal);
+      var records = fetchRecords();
+      var match = records.find(function(r) { return r.date === dateVal; });
 
       if (match) {
         document.getElementById('statusSelect').value = match.status;
-        document.getElementById('inTime').value = match.inTime !== '-' ? match.inTime : '';
-        document.getElementById('outTime').value = match.outTime !== '-' ? match.outTime : '';
-        document.getElementById('notesInput').value = match.notes !== '-' ? match.notes : '';
+        document.getElementById('inTime').value = (match.inTime && match.inTime !== '-') ? match.inTime : '';
+        document.getElementById('outTime').value = (match.outTime && match.outTime !== '-') ? match.outTime : '';
+        document.getElementById('notesInput').value = (match.notes && match.notes !== '-') ? match.notes : '';
       } else {
         document.getElementById('inTime').value = '';
         document.getElementById('outTime').value = '';
         document.getElementById('notesInput').value = '';
 
-        const parts = dateVal.split('-');
-        const selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        var parts = dateVal.split('-');
+        var selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
         if (selectedDate.getDay() === 2) {
           document.getElementById('statusSelect').value = 'Weekly Off';
         } else {
@@ -209,23 +216,25 @@
     }
 
     function handleStatusChange() {
-      const status = document.getElementById('statusSelect').value;
-      const group = document.getElementById('timeFieldsGroup');
+      var status = document.getElementById('statusSelect').value;
+      var group = document.getElementById('timeFieldsGroup');
       group.style.display = (status === 'Absent' || status === 'Weekly Off') ? 'none' : 'block';
     }
 
     function calculateDuration(inTime, outTime) {
       if (!inTime || !outTime || inTime === '-' || outTime === '-') return 0;
-      const [h1, m1] = inTime.split(':').map(Number);
-      const [h2, m2] = outTime.split(':').map(Number);
-      let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+      var p1 = inTime.split(':').map(Number);
+      var p2 = outTime.split(':').map(Number);
+      if (isNaN(p1[0]) || isNaN(p1[1]) || isNaN(p2[0]) || isNaN(p2[1])) return 0;
+      var diff = (p2[0] * 60 + p2[1]) - (p1[0] * 60 + p1[1]);
       if (diff < 0) diff += 24 * 60;
       return +(diff / 60).toFixed(1);
     }
 
     function fetchRecords() {
       try {
-        return JSON.parse(localStorage.getItem('store_attendance_db')) || [];
+        var raw = localStorage.getItem('store_attendance_db');
+        return raw ? JSON.parse(raw) : [];
       } catch (e) {
         return [];
       }
@@ -238,18 +247,20 @@
 
     function handleFormSubmit(e) {
       e.preventDefault();
-      const date = document.getElementById('dateInput').value;
-      const status = document.getElementById('statusSelect').value;
-      const inTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('inTime').value || '-');
-      const outTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('outTime').value || '-');
-      const notes = document.getElementById('notesInput').value || '-';
-      const hours = (status === 'Present' || status === 'Half Day') ? calculateDuration(inTime, outTime) : 0;
+      var date = document.getElementById('dateInput').value;
+      if (!date) return alert('Please select a date.');
 
-      const records = fetchRecords();
-      const cleanRecords = records.filter(item => item.date !== date);
+      var status = document.getElementById('statusSelect').value;
+      var inTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('inTime').value || '-');
+      var outTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('outTime').value || '-');
+      var notes = document.getElementById('notesInput').value || '-';
+      var hours = (status === 'Present' || status === 'Half Day') ? calculateDuration(inTime, outTime) : 0;
 
-      cleanRecords.unshift({ date, status, inTime, outTime, notes, hours });
-      cleanRecords.sort((a, b) => (b.date > a.date ? 1 : -1));
+      var records = fetchRecords();
+      var cleanRecords = records.filter(function(item) { return item.date !== date; });
+
+      cleanRecords.unshift({ date: date, status: status, inTime: inTime, outTime: outTime, notes: notes, hours: hours });
+      cleanRecords.sort(function(a, b) { return (b.date > a.date ? 1 : -1); });
 
       persistRecords(cleanRecords);
       alert('Record saved successfully.');
@@ -263,21 +274,21 @@
 
     function deleteRecord(date) {
       if (confirm('Are you sure you want to delete this log?')) {
-        const records = fetchRecords().filter(r => r.date !== date);
+        var records = fetchRecords().filter(function(r) { return r.date !== date; });
         persistRecords(records);
         onDateChange();
       }
     }
 
     function downloadBackupJSON() {
-      const records = fetchRecords();
+      var records = fetchRecords();
       if (!records.length) {
         return alert('No attendance records available to backup.');
       }
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records, null, 2));
-      const downloadAnchor = document.createElement('a');
+      var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records, null, 2));
+      var downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `Dukan_Attendance_Backup_${new Date().toISOString().split('T')[0]}.json`);
+      downloadAnchor.setAttribute("download", "Dukan_Attendance_Backup_" + toISODate(new Date()) + ".json");
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -288,16 +299,16 @@
     }
 
     function handleRestoreFile(event) {
-      const file = event.target.files[0];
+      var file = event.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
+      var reader = new FileReader();
       reader.onload = function(e) {
         try {
-          const importedData = JSON.parse(e.target.result);
+          var importedData = JSON.parse(e.target.result);
           if (Array.isArray(importedData)) {
             persistRecords(importedData);
-            alert(`Backup successfully restored! Total ${importedData.length} records loaded.`);
+            alert('Backup successfully restored! Total ' + importedData.length + ' records loaded.');
             onDateChange();
             updateDashboard();
           } else {
@@ -311,37 +322,30 @@
       event.target.value = '';
     }
 
-    function toISODate(d) {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-
     function populateCycleDropdown() {
-      const dropdown = document.getElementById('cycleSelector');
+      var dropdown = document.getElementById('cycleSelector');
       dropdown.innerHTML = '';
 
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      const currentDay = now.getDate();
+      var now = new Date();
+      var currentYear = now.getFullYear();
+      var currentMonth = now.getMonth();
+      var currentDay = now.getDate();
 
-      let activeCycleStartMonth = currentDay >= 14 ? currentMonth : currentMonth - 1;
+      var activeCycleStartMonth = currentDay >= 14 ? currentMonth : currentMonth - 1;
 
-      for (let offset = -6; offset <= 6; offset++) {
-        const start = new Date(currentYear, activeCycleStartMonth + offset, 14);
-        const end = new Date(currentYear, activeCycleStartMonth + offset + 1, 13);
+      for (var offset = -6; offset <= 6; offset++) {
+        var start = new Date(currentYear, activeCycleStartMonth + offset, 14);
+        var end = new Date(currentYear, activeCycleStartMonth + offset + 1, 13);
 
-        const startStr = toISODate(start);
-        const endStr = toISODate(end);
+        var startStr = toISODate(start);
+        var endStr = toISODate(end);
 
-        const opt = document.createElement('option');
-        opt.value = `${startStr}|${endStr}`;
+        var opt = document.createElement('option');
+        opt.value = startStr + '|' + endStr;
         
-        const startDisplay = start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const endDisplay = end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        opt.innerText = `${startDisplay} – ${endDisplay}`;
+        var startDisplay = start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        var endDisplay = end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        opt.innerText = startDisplay + ' – ' + endDisplay;
 
         if (offset === 0) {
           opt.selected = true;
@@ -355,30 +359,32 @@
 
     function updatePeriodLabel() {
       if (!activeCycleStart || !activeCycleEnd) return;
-      const p1 = activeCycleStart.split('-');
-      const p2 = activeCycleEnd.split('-');
-      const d1 = new Date(p1[0], p1[1] - 1, p1[2]);
-      const d2 = new Date(p2[0], p2[1] - 1, p2[2]);
-      const startDisplay = d1.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      const endDisplay = d2.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      document.getElementById('activePeriodLabel').innerText = `${startDisplay} – ${endDisplay}`;
+      var p1 = activeCycleStart.split('-');
+      var p2 = activeCycleEnd.split('-');
+      var d1 = new Date(p1[0], p1[1] - 1, p1[2]);
+      var d2 = new Date(p2[0], p2[1] - 1, p2[2]);
+      var startDisplay = d1.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      var endDisplay = d2.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      document.getElementById('activePeriodLabel').innerText = startDisplay + ' – ' + endDisplay;
     }
 
     function onCycleChange() {
-      const [start, end] = document.getElementById('cycleSelector').value.split('|');
-      activeCycleStart = start;
-      activeCycleEnd = end;
+      var parts = document.getElementById('cycleSelector').value.split('|');
+      activeCycleStart = parts[0];
+      activeCycleEnd = parts[1];
       updatePeriodLabel();
       updateDashboard();
     }
 
     function updateDashboard() {
-      const allRecords = fetchRecords();
-      const currentCycle = allRecords.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
+      var allRecords = fetchRecords();
+      var currentCycle = allRecords.filter(function(r) {
+        return r.date >= activeCycleStart && r.date <= activeCycleEnd;
+      });
 
-      let present = 0, absent = 0, halfDay = 0, weeklyOff = 0, totalHours = 0;
+      var present = 0, absent = 0, halfDay = 0, weeklyOff = 0, totalHours = 0;
 
-      currentCycle.forEach(entry => {
+      currentCycle.forEach(function(entry) {
         if (entry.status === 'Present') present++;
         else if (entry.status === 'Absent') absent++;
         else if (entry.status === 'Half Day') halfDay++;
@@ -392,74 +398,60 @@
       document.getElementById('metricOff').innerText = weeklyOff;
       document.getElementById('metricHours').innerText = totalHours.toFixed(1) + ' hrs';
 
-      const logContainer = document.getElementById('logContainer');
+      var logContainer = document.getElementById('logContainer');
       if (!currentCycle.length) {
         logContainer.innerHTML = '<p style="color:#94a3b8; font-size:0.85rem; padding: 8px 0;">No attendance records found for this period.</p>';
         return;
       }
 
-      let logHTML = '';
-      currentCycle.forEach((item) => {
-        let badgeStyle = 'badge-present';
+      var logHTML = '';
+      currentCycle.forEach(function(item) {
+        var badgeStyle = 'badge-present';
         if (item.status === 'Absent') badgeStyle = 'badge-absent';
         else if (item.status === 'Half Day') badgeStyle = 'badge-halfday';
         else if (item.status === 'Weekly Off') badgeStyle = 'badge-off';
 
-        const isCurrentlyWorking = (item.status === 'Present' || item.status === 'Half Day') && item.inTime !== '-' && item.outTime === '-';
+        var isCurrentlyWorking = (item.status === 'Present' || item.status === 'Half Day') && item.inTime !== '-' && item.outTime === '-';
 
-        logHTML += `
-          <div class="entry-item">
-            <div class="entry-details">
-              <strong>${formatDisplayDate(item.date)}</strong> &nbsp;
-              <span class="badge ${isCurrentlyWorking ? 'badge-working' : badgeStyle}">
-                ${isCurrentlyWorking ? 'On Duty' : item.status}
-              </span>
-              <div class="entry-subtext">
-                ${item.status !== 'Absent' && item.status !== 'Weekly Off' 
-                  ? `In: <b>${item.inTime}</b> | Out: <b>${item.outTime}</b>${item.hours > 0 ? `(${item.hours} hrs)` : ''}` 
-                  : 'Weekly Off / Closed'}
-                ${item.notes && item.notes !== '-' ? `<br>Note: ${item.notes}` : ''}
-              </div>
-            </div>
-            <div class="entry-controls">
-              <button class="btn-small btn-edit" onclick="editRecord('${item.date}')">Edit</button>
-              <button class="btn-small btn-delete" onclick="deleteRecord('${item.date}')">✕</button>
-            </div>
-          </div>
-        `;
+        logHTML += '<div class="entry-item">' +
+          '<div class="entry-details">' +
+            '<strong>' + formatDisplayDate(item.date) + '</strong> &nbsp;' +
+            '<span class="badge ' + (isCurrentlyWorking ? 'badge-working' : badgeStyle) + '">' +
+              (isCurrentlyWorking ? 'On Duty' : item.status) +
+            '</span>' +
+            '<div class="entry-subtext">' +
+              (item.status !== 'Absent' && item.status !== 'Weekly Off' 
+                ? 'In: <b>' + item.inTime + '</b> | Out: <b>' + item.outTime + '</b> ' + (item.hours > 0 ? '(' + item.hours + ' hrs)' : '')
+                : 'Weekly Off / Closed') +
+              (item.notes && item.notes !== '-' ? '<br>Note: ' + item.notes : '') +
+            '</div>' +
+          '</div>' +
+          '<div class="entry-controls">' +
+            '<button class="btn-small btn-edit" onclick="editRecord(\'' + item.date + '\')">Edit</button>' +
+            '<button class="btn-small btn-delete" onclick="deleteRecord(\'' + item.date + '\')">✕</button>' +
+          '</div>' +
+        '</div>';
       });
       logContainer.innerHTML = logHTML;
     }
 
     function exportDataToCSV() {
-      const records = fetchRecords();
-      const cycleData = records.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
+      var records = fetchRecords();
+      var cycleData = records.filter(function(r) {
+        return r.date >= activeCycleStart && r.date <= activeCycleEnd;
+      });
 
       if (!cycleData.length) return alert('No records to export for this cycle.');
 
-      let csvContent = 'Date,Day,Status,Check In,Check Out,Hours Worked,Remarks\n';
-      cycleData.forEach(row => {
-        const parts = row.date.split('-');
-        const d = new Date(parts[0], parts[1] - 1, parts[2]);
-        const day = d.toLocaleDateString('en-GB', { weekday: 'long' });
-        csvContent += `"${row.date}","${day}","${row.status}","${row.inTime}","${row.outTime}","${row.hours || 0}","${row.notes}"\n`;
+      var csvContent = 'Date,Day,Status,Check In,Check Out,Hours Worked,Remarks\n';
+      cycleData.forEach(function(row) {
+        var parts = row.date.split('-');
+        var d = new Date(parts[0], parts[1] - 1, parts[2]);
+        var day = d.toLocaleDateString('en-GB', { weekday: 'long' });
+        csvContent += '"' + row.date + '","' + day + '","' + row.status + '","' + row.inTime + '","' + row.outTime + '","' + (row.hours || 0) + '","' + row.notes + '"\n';
       });
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.setAttribute('download', `Attendance_Report_${activeCycleStart}_to_${activeCycleEnd}.csv`);
-      link.click();
-    }
-
-    // Auto-load on startup
-    window.addEventListener('DOMContentLoaded', () => {
-      const today = new Date();
-      const localDate = toISODate(today);
-      document.getElementById('dateInput').value = localDate;
-
-      populateCycleDropdown();
-      onDateChange();
-      updateDashboard();
-    });
-  </scr
+      link.setAttribute('download', 'Attendance_Report_' + activeCy
