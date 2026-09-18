@@ -172,8 +172,6 @@
     </div>
   </div>
 
-  <!-- ALL POPUP MODALS -->
-
   <!-- 1. Delete Confirm Modal -->
   <div id="deleteModal" class="modal-backdrop">
     <div class="modal-box">
@@ -247,15 +245,20 @@
       messagingSenderId: "1002166535999",
       appId: "1:1002166535999:web:2e774aca02372e62d3768a"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database().ref('attendance_records');
+
+    let db = null;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database().ref('attendance_records');
+    } catch (e) {
+      console.error("Firebase init error:", e);
+    }
 
     let memoryRecords = [];
     let activeCycleStart = '';
     let activeCycleEnd = '';
     let targetDeleteDate = null;
 
-    // Custom Modal Helpers
     function showAppAlert(title, message) {
       document.getElementById('alertModalTitle').innerText = title;
       document.getElementById('alertModalText').innerText = message;
@@ -271,13 +274,18 @@
       textarea.select();
       textarea.setSelectionRange(0, 99999);
       try {
-        navigator.clipboard.writeText(textarea.value).then(() => {
-          showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
-        }).catch(() => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(textarea.value).then(() => {
+            showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
+          }).catch(() => {
+            document.execCommand('copy');
+            showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
+          });
+        } else {
           document.execCommand('copy');
           showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
-        });
-      } catch(e) {
+        }
+      } catch (e) {
         document.execCommand('copy');
         showAppAlert('Copied', 'Content clipboard me copy ho gaya hai!');
       }
@@ -289,21 +297,22 @@
     }
 
     function confirmDeleteAction() {
-      if (targetDeleteDate) {
+      if (targetDeleteDate && db) {
         db.child(targetDeleteDate).remove((err) => {
           if (err) {
             showAppAlert('Error', 'Failed: ' + err.message);
           } else {
-            showAppAlert('Deleted', 'Record safely deleted.');
+            showAppAlert('Deleted', 'Record delete ho gaya.');
           }
           closeModal('deleteModal');
         });
+      } else {
+        closeModal('deleteModal');
       }
     }
 
-    // Backup & Restore
     function openBackupModal() {
-      if (!memoryRecords.length) {
+      if (!memoryRecords || !memoryRecords.length) {
         return showAppAlert('Notice', 'No records available to backup.');
       }
       document.getElementById('backupTextArea').value = JSON.stringify(memoryRecords, null, 2);
@@ -322,7 +331,7 @@
       }
       try {
         const importedData = JSON.parse(text);
-        if (Array.isArray(importedData)) {
+        if (Array.isArray(importedData) && db) {
           const updates = {};
           importedData.forEach(item => {
             if (item.date) updates[item.date] = item;
@@ -331,19 +340,18 @@
             if (err) {
               showAppAlert('Error', 'Restore failed: ' + err.message);
             } else {
-              showAppAlert('Success', `Backup restored! Total ${importedData.length} records updated.`);
+              showAppAlert('Success', `Backup restored! Total ${importedData.length} records update ho gaye.`);
               closeModal('restoreModal');
             }
           });
         } else {
-          showAppAlert('Error', 'Invalid format. Expected list of records.');
+          showAppAlert('Error', 'Invalid format. List expected.');
         }
       } catch (e) {
         showAppAlert('Error', 'Invalid JSON text format.');
       }
     }
 
-    // Monthly Report
     function openReportModal() {
       const cycleData = memoryRecords.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
       if (!cycleData.length) {
@@ -361,20 +369,21 @@
       document.getElementById('reportModal').style.display = 'flex';
     }
 
-    // Realtime Cloud Synchronization (Firebase DB)
-    db.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        memoryRecords = Object.keys(data).map(key => data[key]);
-        memoryRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
-      } else {
-        memoryRecords = [];
-      }
-      // Offline local cache
-      localStorage.setItem('store_attendance_db', JSON.stringify(memoryRecords));
-      updateDashboard();
-      onDateChange();
-    });
+    // Cloud Listener
+    if (db) {
+      db.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          memoryRecords = Object.keys(data).map(key => data[key]);
+          memoryRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+        } else {
+          memoryRecords = [];
+        }
+        localStorage.setItem('store_attendance_db', JSON.stringify(memoryRecords));
+        updateDashboard();
+        onDateChange();
+      });
+    }
 
     function getNowTimeString() {
       const now = new Date();
@@ -437,6 +446,4 @@
       e.preventDefault();
       const date = document.getElementById('dateInput').value;
       const status = document.getElementById('statusSelect').value;
-      const inTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('inTime').value || '-');
-      const outTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('outTime').value || '-');
-      const notes = document.getElementById('notesInput').valu
+      const inTime = (status === 'Abse
