@@ -172,7 +172,9 @@
     }
 
     function formatDisplayDate(dateStr) {
-      const d = new Date(dateStr + 'T00:00:00');
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
       const dayName = d.toLocaleDateString('en-GB', { weekday: 'short' });
       const fullDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       return `${dayName}, ${fullDate}`;
@@ -195,7 +197,8 @@
         document.getElementById('outTime').value = '';
         document.getElementById('notesInput').value = '';
 
-        const selectedDate = new Date(dateVal + 'T00:00:00');
+        const parts = dateVal.split('-');
+        const selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
         if (selectedDate.getDay() === 2) {
           document.getElementById('statusSelect').value = 'Weekly Off';
         } else {
@@ -221,7 +224,11 @@
     }
 
     function fetchRecords() {
-      return JSON.parse(localStorage.getItem('store_attendance_db') || '[]');
+      try {
+        return JSON.parse(localStorage.getItem('store_attendance_db')) || [];
+      } catch (e) {
+        return [];
+      }
     }
 
     function persistRecords(data) {
@@ -242,7 +249,7 @@
       const cleanRecords = records.filter(item => item.date !== date);
 
       cleanRecords.unshift({ date, status, inTime, outTime, notes, hours });
-      cleanRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+      cleanRecords.sort((a, b) => (b.date > a.date ? 1 : -1));
 
       persistRecords(cleanRecords);
       alert('Record saved successfully.');
@@ -262,7 +269,6 @@
       }
     }
 
-    /* Backup & Restore Logic */
     function downloadBackupJSON() {
       const records = fetchRecords();
       if (!records.length) {
@@ -293,15 +299,23 @@
             persistRecords(importedData);
             alert(`Backup successfully restored! Total ${importedData.length} records loaded.`);
             onDateChange();
+            updateDashboard();
           } else {
             alert('Invalid backup file format.');
           }
         } catch (err) {
-          alert('Failed to read backup file. Please select a valid JSON backup file.');
+          alert('Failed to read backup file.');
         }
       };
       reader.readAsText(file);
       event.target.value = '';
+    }
+
+    function toISODate(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
 
     function populateCycleDropdown() {
@@ -319,8 +333,8 @@
         const start = new Date(currentYear, activeCycleStartMonth + offset, 14);
         const end = new Date(currentYear, activeCycleStartMonth + offset + 1, 13);
 
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
+        const startStr = toISODate(start);
+        const endStr = toISODate(end);
 
         const opt = document.createElement('option');
         opt.value = `${startStr}|${endStr}`;
@@ -340,8 +354,13 @@
     }
 
     function updatePeriodLabel() {
-      const startDisplay = new Date(activeCycleStart + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      const endDisplay = new Date(activeCycleEnd + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      if (!activeCycleStart || !activeCycleEnd) return;
+      const p1 = activeCycleStart.split('-');
+      const p2 = activeCycleEnd.split('-');
+      const d1 = new Date(p1[0], p1[1] - 1, p1[2]);
+      const d2 = new Date(p2[0], p2[1] - 1, p2[2]);
+      const startDisplay = d1.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const endDisplay = d2.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       document.getElementById('activePeriodLabel').innerText = `${startDisplay} – ${endDisplay}`;
     }
 
@@ -420,7 +439,8 @@
 
       let csvContent = 'Date,Day,Status,Check In,Check Out,Hours Worked,Remarks\n';
       cycleData.forEach(row => {
-        const d = new Date(row.date + 'T00:00:00');
+        const parts = row.date.split('-');
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
         const day = d.toLocaleDateString('en-GB', { weekday: 'long' });
         csvContent += `"${row.date}","${day}","${row.status}","${row.inTime}","${row.outTime}","${row.hours || 0}","${row.notes}"\n`;
       });
@@ -432,13 +452,14 @@
       link.click();
     }
 
-    // Initialize App
-    const today = new Date();
-    const localDate = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    document.getElementById('dateInput').value = localDate;
+    // Auto-load on startup
+    window.addEventListener('DOMContentLoaded', () => {
+      const today = new Date();
+      const localDate = toISODate(today);
+      document.getElementById('dateInput').value = localDate;
 
-    populateCycleDropdown();
-    onDateChange();
-  </script>
-</body>
-</html>
+      populateCycleDropdown();
+      onDateChange();
+      updateDashboard();
+    });
+  </scr
