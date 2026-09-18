@@ -345,54 +345,46 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    /* Backup & Restore Logic */
-    function downloadBackupJSON() {
-      if (!memoryRecords.length) {
-        return showAppAlert('Notice', 'No records available to backup.');
-      }
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(memoryRecords, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `Shop_Attendance_Backup_${new Date().toISOString().split('T')[0]}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-    }
+    /* Safe Backup & Restore (No Storage Permission Needed) */
+function downloadBackupJSON() {
+  if (!memoryRecords.length) {
+    return showAppAlert('Notice', 'No records available to backup.');
+  }
+  const dataStr = JSON.stringify(memoryRecords, null, 2);
+  
+  navigator.clipboard.writeText(dataStr).then(() => {
+    showAppAlert('Backup Copied', 'Poora backup data copy ho gaya hai! Aap ise WhatsApp ya Notes me paste karke save rakh sakte hain.');
+  }).catch(() => {
+    prompt('Neeche diye gaye data ko copy kar lijiye:', dataStr);
+  });
+}
 
-    function triggerRestoreInput() {
-      document.getElementById('restoreFileInput').click();
-    }
+function triggerRestoreInput() {
+  const backupText = prompt('Apna backup JSON data yahan paste karein:');
+  if (!backupText) return;
 
-    function handleRestoreFile(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const importedData = JSON.parse(e.target.result);
-          if (Array.isArray(importedData)) {
-            const updates = {};
-            importedData.forEach(item => {
-              if (item.date) updates[item.date] = item;
-            });
-            db.update(updates, (err) => {
-              if (err) {
-                showAppAlert('Error', 'Failed to restore: ' + err.message);
-              } else {
-                showAppAlert('Success', `Backup restored! Total ${importedData.length} records updated.`);
-              }
-            });
-          } else {
-            showAppAlert('Error', 'Invalid backup file format.');
-          }
-        } catch (err) {
-          showAppAlert('Error', 'Failed to read backup file.');
+  try {
+    const importedData = JSON.parse(backupText);
+    if (Array.isArray(importedData)) {
+      const updates = {};
+      importedData.forEach(item => {
+        if (item.date) updates[item.date] = item;
+      });
+      db.update(updates, (err) => {
+        if (err) {
+          showAppAlert('Error', 'Failed to restore: ' + err.message);
+        } else {
+          showAppAlert('Success', `Backup restored! Total ${importedData.length} records update ho gaye.`);
         }
-      };
-      reader.readAsText(file);
-      event.target.value = '';
+      });
+    } else {
+      showAppAlert('Error', 'Invalid backup format.');
     }
+  } catch (err) {
+    showAppAlert('Error', 'Invalid JSON code! Kripya sahi format paste karein.');
+  }
+}
+
 
     function populateCycleDropdown() {
       const dropdown = document.getElementById('cycleSelector');
