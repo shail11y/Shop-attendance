@@ -54,8 +54,7 @@
 
     /* Action Buttons */
     .action-row { display: flex; gap: 8px; margin-top: 10px; }
-    .btn-secondary { flex: 1; padding: 10px; font-size: 0.85rem; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; border-radius: 8px; cursor: pointer; font-weight: 600; text-align: center; }
-    .btn-danger { border-color: #fecaca; color: #dc2626; background: #fff; }
+    .btn-secondary { flex: 1; padding: 11px; font-size: 0.85rem; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; border-radius: 8px; cursor: pointer; font-weight: 600; text-align: center; }
     .btn-backup { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
     .btn-restore { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
   </style>
@@ -141,9 +140,8 @@
   <div class="card">
     <h2>Attendance Log</h2>
     <div id="logContainer">No records available for this cycle.</div>
-    <div class="action-row" style="margin-top: 14px;">
-      <button type="button" class="btn-secondary" onclick="exportDataToCSV()">📊 Export CSV</button>
-      <button type="button" class="btn-secondary btn-danger" onclick="clearAllRecords()">🗑️ Reset All</button>
+    <div style="margin-top: 14px;">
+      <button type="button" class="btn-secondary" style="width: 100%;" onclick="exportDataToCSV()">📊 Export to Excel (CSV)</button>
     </div>
   </div>
 
@@ -264,14 +262,6 @@
       }
     }
 
-    function clearAllRecords() {
-      if (confirm('Warning: This will permanently delete all attendance logs. Continue?')) {
-        localStorage.removeItem('store_attendance_db');
-        updateDashboard();
-        onDateChange();
-      }
-    }
-
     /* Backup & Restore Logic */
     function downloadBackupJSON() {
       const records = fetchRecords();
@@ -311,7 +301,7 @@
         }
       };
       reader.readAsText(file);
-      event.target.value = ''; // Reset input
+      event.target.value = '';
     }
 
     function populateCycleDropdown() {
@@ -407,7 +397,7 @@
               </span>
               <div class="entry-subtext">
                 ${item.status !== 'Absent' && item.status !== 'Weekly Off' 
-                  ? `In: <b>${item.inTime}</b> | Out: <b>${item.outTime}</b> ${item.hours > 0 ? `(${item.hours} hrs)` : ''}` 
+                  ? `In: <b>${item.inTime}</b> | Out: <b>${item.outTime}</b>${item.hours > 0 ? `(${item.hours} hrs)` : ''}` 
                   : 'Weekly Off / Closed'}
                 ${item.notes && item.notes !== '-' ? `<br>Note: ${item.notes}` : ''}
               </div>
