@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Attendance Tracker</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; }
+    body { background-color: #f1f5f9; padding: 16px; color: #1e293b; }
+    .card { background: #ffffff; border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); margin-bottom: 16px; border: 1px solid #e2e8f0; }
+    h2 { color: #0f172a; margin-bottom: 14px; font-size: 1.15rem; font-weight: 700; }
+    label { display: block; margin: 10px 0 4px; font-size: 0.8rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; outline: none; background-color: #f8fafc; color: #0f172a; }
+    input:focus, select:focus { border-color: #2563eb; background-color: #ffffff; }
+
+    /* Time Inputs with Smart "Now" Buttons */
+    .time-input-row { display: flex; gap: 8px; align-items: center; }
+    .btn-now { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-now:active { background: #cbd5e1; }
+    
+    .btn-save-main { background: #0f172a; color: #ffffff; border: none; padding: 13px; border-radius: 8px; font-size: 1rem; font-weight: 700; width: 100%; margin-top: 14px; cursor: pointer; transition: background 0.2s; }
+    .btn-save-main:active { background: #1e293b; }
+
+    /* Cycle & Metrics */
+    .cycle-selector { margin-bottom: 14px; }
+    .cycle-banner { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 10px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .metric-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 10px; border-radius: 8px; text-align: center; }
+    .metric-title { font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+    .metric-value { display: block; font-size: 1.25rem; font-weight: 700; margin-top: 4px; }
+    
+    .val-present { color: #16a34a; }
+    .val-absent { color: #dc2626; }
+    .val-halfday { color: #d97706; }
+    .val-off { color: #475569; }
+    .val-hours { color: #0284c7; }
+
+    /* Entry History */
+    .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+    .badge-present { background: #dcfce7; color: #15803d; }
+    .badge-absent { background: #fee2e2; color: #b91c1c; }
+    .badge-halfday { background: #fef3c7; color: #b45309; }
+    .badge-off { background: #f1f5f9; color: #475569; }
+    .badge-working { background: #e0f2fe; color: #0369a1; }
+
+    .entry-item { border-bottom: 1px solid #f1f5f9; padding: 12px 0; display: flex; justify-content: space-between; align-items: flex-start; }
+    .entry-item:last-child { border-bottom: none; }
+    .entry-details { font-size: 0.85rem; line-height: 1.4; }
+    .entry-subtext { color: #64748b; font-size: 0.8rem; margin-top: 3px; }
+    .entry-controls { display: flex; gap: 6px; }
+    .btn-small { border: none; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; font-weight: 600; }
+    .btn-edit { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+    .btn-delete { background: #fee2e2; color: #dc2626; }
+
+    /* Action Buttons */
+    .action-row { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-secondary { flex: 1; padding: 10px; font-size: 0.85rem; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; border-radius: 8px; cursor: pointer; font-weight: 600; text-align: center; }
+    .btn-danger { border-color: #fecaca; color: #dc2626; background: #fff; }
+    .btn-backup { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
+    .btn-restore { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
+  </style>
+</head>
+<body>
+
+  <!-- Input Form -->
+  <div class="card">
+    <h2>Attendance Entry</h2>
+    <form id="attendanceForm" onsubmit="handleFormSubmit(event)">
+      <label>Date</label>
+      <input type="date" id="dateInput" onchange="onDateChange()" required>
+
+      <label>Attendance Status</label>
+      <select id="statusSelect" onchange="handleStatusChange()">
+        <option value="Present">Present</option>
+        <option value="Half Day">Half Day</option>
+        <option value="Weekly Off">Weekly Off</option>
+        <option value="Absent">Absent</option>
+      </select>
+
+      <div id="timeFieldsGroup">
+        <label>Check-In Time (Morning)</label>
+        <div class="time-input-row">
+          <input type="time" id="inTime">
+          <button type="button" class="btn-now" onclick="setCurrentTime('inTime')">⏱ Now</button>
+        </div>
+
+        <label>Check-Out Time (Evening)</label>
+        <div class="time-input-row">
+          <input type="time" id="outTime">
+          <button type="button" class="btn-now" onclick="setCurrentTime('outTime')">⏱ Now</button>
+        </div>
+      </div>
+
+      <label>Remarks / Notes</label>
+      <input type="text" id="notesInput" placeholder="Late arrival, advance payout, etc.">
+
+      <button type="submit" class="btn-save-main">💾 Save Attendance Record</button>
+    </form>
+  </div>
+
+  <!-- Summary Dashboard -->
+  <div class="card">
+    <h2>Billing Cycle Summary</h2>
+    
+    <div class="cycle-selector">
+      <label>Select Cycle</label>
+      <select id="cycleSelector" onchange="onCycleChange()"></select>
+    </div>
+
+    <div class="cycle-banner">
+      <span>Active Period</span>
+      <span id="activePeriodLabel"></span>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <span class="metric-title">Present Days</span>
+        <span class="metric-value val-present" id="metricPresent">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Weekly Offs</span>
+        <span class="metric-value val-off" id="metricOff">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Half Days</span>
+        <span class="metric-value val-halfday" id="metricHalfDay">0</span>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">Absent</span>
+        <span class="metric-value val-absent" id="metricAbsent">0</span>
+      </div>
+    </div>
+    
+    <div class="metric-card" style="margin-top: 10px;">
+      <span class="metric-title">Total Productive Hours</span>
+      <span class="metric-value val-hours" id="metricHours">0.0 hrs</span>
+    </div>
+  </div>
+
+  <!-- Attendance Log -->
+  <div class="card">
+    <h2>Attendance Log</h2>
+    <div id="logContainer">No records available for this cycle.</div>
+    <div class="action-row" style="margin-top: 14px;">
+      <button type="button" class="btn-secondary" onclick="exportDataToCSV()">📊 Export CSV</button>
+      <button type="button" class="btn-secondary btn-danger" onclick="clearAllRecords()">🗑️ Reset All</button>
+    </div>
+  </div>
+
+  <!-- Backup & Data Transfer -->
+  <div class="card">
+    <h2>Backup & Transfer Data</h2>
+    <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 12px;">
+      Download backup before phone reset or transfer to a new phone.
+    </p>
+    <div class="action-row">
+      <button type="button" class="btn-secondary btn-backup" onclick="downloadBackupJSON()">📥 Backup (Download)</button>
+      <button type="button" class="btn-secondary btn-restore" onclick="triggerRestoreInput()">📤 Restore (Upload)</button>
+      <input type="file" id="restoreFileInput" accept=".json" style="display: none;" onchange="handleRestoreFile(event)">
+    </div>
+  </div>
+
+  <script>
+    let activeCycleStart = '';
+    let activeCycleEnd = '';
+
+    function getNowTimeString() {
+      const now = new Date();
+      return String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    }
+
+    function setCurrentTime(fieldId) {
+      document.getElementById(fieldId).value = getNowTimeString();
+    }
+
+    function formatDisplayDate(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const dayName = d.toLocaleDateString('en-GB', { weekday: 'short' });
+      const fullDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return `${dayName}, ${fullDate}`;
+    }
+
+    function onDateChange() {
+      const dateVal = document.getElementById('dateInput').value;
+      if (!dateVal) return;
+      
+      const records = fetchRecords();
+      const match = records.find(r => r.date === dateVal);
+
+      if (match) {
+        document.getElementById('statusSelect').value = match.status;
+        document.getElementById('inTime').value = match.inTime !== '-' ? match.inTime : '';
+        document.getElementById('outTime').value = match.outTime !== '-' ? match.outTime : '';
+        document.getElementById('notesInput').value = match.notes !== '-' ? match.notes : '';
+      } else {
+        document.getElementById('inTime').value = '';
+        document.getElementById('outTime').value = '';
+        document.getElementById('notesInput').value = '';
+
+        const selectedDate = new Date(dateVal + 'T00:00:00');
+        if (selectedDate.getDay() === 2) {
+          document.getElementById('statusSelect').value = 'Weekly Off';
+        } else {
+          document.getElementById('statusSelect').value = 'Present';
+        }
+      }
+      handleStatusChange();
+    }
+
+    function handleStatusChange() {
+      const status = document.getElementById('statusSelect').value;
+      const group = document.getElementById('timeFieldsGroup');
+      group.style.display = (status === 'Absent' || status === 'Weekly Off') ? 'none' : 'block';
+    }
+
+    function calculateDuration(inTime, outTime) {
+      if (!inTime || !outTime || inTime === '-' || outTime === '-') return 0;
+      const [h1, m1] = inTime.split(':').map(Number);
+      const [h2, m2] = outTime.split(':').map(Number);
+      let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+      if (diff < 0) diff += 24 * 60;
+      return +(diff / 60).toFixed(1);
+    }
+
+    function fetchRecords() {
+      return JSON.parse(localStorage.getItem('store_attendance_db') || '[]');
+    }
+
+    function persistRecords(data) {
+      localStorage.setItem('store_attendance_db', JSON.stringify(data));
+      updateDashboard();
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const date = document.getElementById('dateInput').value;
+      const status = document.getElementById('statusSelect').value;
+      const inTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('inTime').value || '-');
+      const outTime = (status === 'Absent' || status === 'Weekly Off') ? '-' : (document.getElementById('outTime').value || '-');
+      const notes = document.getElementById('notesInput').value || '-';
+      const hours = (status === 'Present' || status === 'Half Day') ? calculateDuration(inTime, outTime) : 0;
+
+      const records = fetchRecords();
+      const cleanRecords = records.filter(item => item.date !== date);
+
+      cleanRecords.unshift({ date, status, inTime, outTime, notes, hours });
+      cleanRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      persistRecords(cleanRecords);
+      alert('Record saved successfully.');
+    }
+
+    function editRecord(date) {
+      document.getElementById('dateInput').value = date;
+      onDateChange();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function deleteRecord(date) {
+      if (confirm('Are you sure you want to delete this log?')) {
+        const records = fetchRecords().filter(r => r.date !== date);
+        persistRecords(records);
+        onDateChange();
+      }
+    }
+
+    function clearAllRecords() {
+      if (confirm('Warning: This will permanently delete all attendance logs. Continue?')) {
+        localStorage.removeItem('store_attendance_db');
+        updateDashboard();
+        onDateChange();
+      }
+    }
+
+    /* Backup & Restore Logic */
+    function downloadBackupJSON() {
+      const records = fetchRecords();
+      if (!records.length) {
+        return alert('No attendance records available to backup.');
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(records, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Dukan_Attendance_Backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function triggerRestoreInput() {
+      document.getElementById('restoreFileInput').click();
+    }
+
+    function handleRestoreFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if (Array.isArray(importedData)) {
+            persistRecords(importedData);
+            alert(`Backup successfully restored! Total ${importedData.length} records loaded.`);
+            onDateChange();
+          } else {
+            alert('Invalid backup file format.');
+          }
+        } catch (err) {
+          alert('Failed to read backup file. Please select a valid JSON backup file.');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = ''; // Reset input
+    }
+
+    function populateCycleDropdown() {
+      const dropdown = document.getElementById('cycleSelector');
+      dropdown.innerHTML = '';
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const currentDay = now.getDate();
+
+      let activeCycleStartMonth = currentDay >= 14 ? currentMonth : currentMonth - 1;
+
+      for (let offset = -6; offset <= 6; offset++) {
+        const start = new Date(currentYear, activeCycleStartMonth + offset, 14);
+        const end = new Date(currentYear, activeCycleStartMonth + offset + 1, 13);
+
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+
+        const opt = document.createElement('option');
+        opt.value = `${startStr}|${endStr}`;
+        
+        const startDisplay = start.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const endDisplay = end.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        opt.innerText = `${startDisplay} – ${endDisplay}`;
+
+        if (offset === 0) {
+          opt.selected = true;
+          activeCycleStart = startStr;
+          activeCycleEnd = endStr;
+        }
+        dropdown.appendChild(opt);
+      }
+      updatePeriodLabel();
+    }
+
+    function updatePeriodLabel() {
+      const startDisplay = new Date(activeCycleStart + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const endDisplay = new Date(activeCycleEnd + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      document.getElementById('activePeriodLabel').innerText = `${startDisplay} – ${endDisplay}`;
+    }
+
+    function onCycleChange() {
+      const [start, end] = document.getElementById('cycleSelector').value.split('|');
+      activeCycleStart = start;
+      activeCycleEnd = end;
+      updatePeriodLabel();
+      updateDashboard();
+    }
+
+    function updateDashboard() {
+      const allRecords = fetchRecords();
+      const currentCycle = allRecords.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
+
+      let present = 0, absent = 0, halfDay = 0, weeklyOff = 0, totalHours = 0;
+
+      currentCycle.forEach(entry => {
+        if (entry.status === 'Present') present++;
+        else if (entry.status === 'Absent') absent++;
+        else if (entry.status === 'Half Day') halfDay++;
+        else if (entry.status === 'Weekly Off') weeklyOff++;
+        totalHours += Number(entry.hours || 0);
+      });
+
+      document.getElementById('metricPresent').innerText = present;
+      document.getElementById('metricAbsent').innerText = absent;
+      document.getElementById('metricHalfDay').innerText = halfDay;
+      document.getElementById('metricOff').innerText = weeklyOff;
+      document.getElementById('metricHours').innerText = totalHours.toFixed(1) + ' hrs';
+
+      const logContainer = document.getElementById('logContainer');
+      if (!currentCycle.length) {
+        logContainer.innerHTML = '<p style="color:#94a3b8; font-size:0.85rem; padding: 8px 0;">No attendance records found for this period.</p>';
+        return;
+      }
+
+      let logHTML = '';
+      currentCycle.forEach((item) => {
+        let badgeStyle = 'badge-present';
+        if (item.status === 'Absent') badgeStyle = 'badge-absent';
+        else if (item.status === 'Half Day') badgeStyle = 'badge-halfday';
+        else if (item.status === 'Weekly Off') badgeStyle = 'badge-off';
+
+        const isCurrentlyWorking = (item.status === 'Present' || item.status === 'Half Day') && item.inTime !== '-' && item.outTime === '-';
+
+        logHTML += `
+          <div class="entry-item">
+            <div class="entry-details">
+              <strong>${formatDisplayDate(item.date)}</strong> &nbsp;
+              <span class="badge ${isCurrentlyWorking ? 'badge-working' : badgeStyle}">
+                ${isCurrentlyWorking ? 'On Duty' : item.status}
+              </span>
+              <div class="entry-subtext">
+                ${item.status !== 'Absent' && item.status !== 'Weekly Off' 
+                  ? `In: <b>${item.inTime}</b> | Out: <b>${item.outTime}</b> ${item.hours > 0 ? `(${item.hours} hrs)` : ''}` 
+                  : 'Weekly Off / Closed'}
+                ${item.notes && item.notes !== '-' ? `<br>Note: ${item.notes}` : ''}
+              </div>
+            </div>
+            <div class="entry-controls">
+              <button class="btn-small btn-edit" onclick="editRecord('${item.date}')">Edit</button>
+              <button class="btn-small btn-delete" onclick="deleteRecord('${item.date}')">✕</button>
+            </div>
+          </div>
+        `;
+      });
+      logContainer.innerHTML = logHTML;
+    }
+
+    function exportDataToCSV() {
+      const records = fetchRecords();
+      const cycleData = records.filter(r => r.date >= activeCycleStart && r.date <= activeCycleEnd);
+
+      if (!cycleData.length) return alert('No records to export for this cycle.');
+
+      let csvContent = 'Date,Day,Status,Check In,Check Out,Hours Worked,Remarks\n';
+      cycleData.forEach(row => {
+        const d = new Date(row.date + 'T00:00:00');
+        const day = d.toLocaleDateString('en-GB', { weekday: 'long' });
+        csvContent += `"${row.date}","${day}","${row.status}","${row.inTime}","${row.outTime}","${row.hours || 0}","${row.notes}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute('download', `Attendance_Report_${activeCycleStart}_to_${activeCycleEnd}.csv`);
+      link.click();
+    }
+
+    // Initialize App
+    const today = new Date();
+    const localDate = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    document.getElementById('dateInput').value = localDate;
+
+    populateCycleDropdown();
+    onDateChange();
+  </script>
+</body>
+</html>
